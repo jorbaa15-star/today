@@ -39,7 +39,7 @@
 </head>
 <body class="min-h-screen w-full flex items-center justify-center p-4">
     <div id="app-container" class="w-full max-w-2xl mx-auto">
-
+        <!-- HTML 부분은 변경사항 없습니다. -->
         <!-- Page 1: Nickname Input -->
         <div id="nickname-page" class="text-center p-8 md:p-12 rounded-3xl shadow-2xl card transition-all duration-500">
             <div class="floating-emoji text-7xl mb-6">🧠</div>
@@ -79,7 +79,6 @@
             </div>
             
             <div id="results-list" class="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
-                <!-- Results will be injected here by JavaScript -->
                 <div class="text-center text-gray-500 py-8">결과를 불러오는 중...</div>
             </div>
 
@@ -116,25 +115,31 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // --- Firebase Configuration ---
-        // These global variables are expected to be provided by the environment (e.g., Canvas).
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'word-game-default';
-        let firebaseConfig;
-        try {
-            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "DEMO", authDomain: "DEMO", projectId: "DEMO" };
-        } catch (e) {
-            console.error("Firebase config parsing failed. Using demo config.", e);
-            firebaseConfig = { apiKey: "DEMO", authDomain: "DEMO", projectId: "DEMO" };
-        }
+        // 1. 여기에 본인의 Firebase 설정 정보를 정확하게 붙여넣었습니다.
+        // 2. 불필요한 try-catch 구문과 변수 선언을 제거하여 코드를 정리했습니다.
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoVUoIcJNNTS7UpmazEa2HdD_o6hms7Og",
+            authDomain: "today-3bda0.firebaseapp.com",
+            projectId: "today-3bda0",
+            storageBucket: "today-3bda0.firebasestorage.app",
+            messagingSenderId: "418469230053",
+            appId: "1:418469230053:web:eabe749e7db12c3e41eb0c",
+            measurementId: "G-L6J3T6TF2X"
+        };
+        const appId = firebaseConfig.appId;
+
 
         // --- App Initialization ---
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
+        // --- 이하 코드는 이전과 동일합니다 ---
+
         // --- Global State ---
         let userNickname = '';
-        let editingDocId = null; // To track which document is being edited
-        let unsubscribeFromResults; // To stop listening to Firestore updates when not needed
+        let editingDocId = null; 
+        let unsubscribeFromResults;
 
         // --- Page Elements ---
         const pages = {
@@ -142,7 +147,6 @@
             word: document.getElementById('word-page'),
             results: document.getElementById('results-page')
         };
-        
         const nicknameInput = document.getElementById('nickname-input');
         const startButton = document.getElementById('start-button');
         const userNicknameDisplay = document.getElementById('user-nickname-display');
@@ -156,7 +160,6 @@
         const cancelResetButton = document.getElementById('cancel-reset-button');
         const confirmResetButton = document.getElementById('confirm-reset-button');
 
-
         // --- Page Navigation ---
         function showPage(pageName) {
             Object.values(pages).forEach(page => page.classList.add('hidden'));
@@ -167,7 +170,7 @@
                 listenForResults();
             } else {
                 if (unsubscribeFromResults) {
-                    unsubscribeFromResults(); // Stop listening if we are not on the results page
+                    unsubscribeFromResults();
                 }
             }
         }
@@ -177,8 +180,6 @@
         
         async function saveOrUpdateWord(nickname, word) {
             if (!word.trim()) {
-                // In a real app, a custom modal/toast would be better than alert.
-                // We'll use a simple approach here.
                 alert("낱말을 입력해주세요!");
                 return;
             }
@@ -192,12 +193,10 @@
 
             try {
                 if (editingDocId) {
-                    // Update existing word
                     const docRef = doc(db, entriesCollectionPath, editingDocId);
                     await updateDoc(docRef, { word: word });
-                    editingDocId = null; // Reset editing state
+                    editingDocId = null;
                 } else {
-                    // Add new word
                     await addDoc(collection(db, entriesCollectionPath), {
                         nickname: nickname,
                         word: word,
@@ -232,13 +231,12 @@
             }
 
             unsubscribeFromResults = onSnapshot(q, (snapshot) => {
-                resultsList.innerHTML = ''; // Clear previous results
+                resultsList.innerHTML = '';
                 if (snapshot.empty) {
                     resultsList.innerHTML = '<div class="text-center text-gray-500 py-8">아직 아무도 낱말을 입력하지 않았어요. 텅... 💨</div>';
                     return;
                 }
 
-                // Fetch all docs and sort them client-side by timestamp
                 const docs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
                 docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
@@ -280,7 +278,6 @@
             });
         }
 
-
         // --- Event Listeners ---
         startButton.addEventListener('click', () => {
             const nickname = nicknameInput.value.trim();
@@ -297,8 +294,8 @@
             const word = wordInput.value.trim();
             if(word){
                 await saveOrUpdateWord(userNickname, word);
-                wordInput.value = ''; // Clear input
-                submitWordButton.innerHTML = '제출하기 💖'; // Reset button text
+                wordInput.value = '';
+                submitWordButton.innerHTML = '제출하기 💖';
                 showPage('results');
             } else {
                  alert('낱말을 입력해주세요!');
@@ -319,7 +316,6 @@
             showPage('nickname');
         });
 
-        // --- New Event Listeners for Edit and Reset ---
         resultsList.addEventListener('click', (e) => {
             if (e.target.classList.contains('edit-btn')) {
                 const docId = e.target.dataset.docId;
@@ -358,9 +354,8 @@
             } catch (error) {
                 console.error("Authentication failed:", error);
             }
-            showPage('nickname'); // Start on the first page
+            showPage('nickname');
         });
-
     </script>
 </body>
 </html>
