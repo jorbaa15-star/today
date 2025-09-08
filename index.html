@@ -46,10 +46,11 @@
             <p class="text-gray-600 mb-8">당신의 멋진 별명을 알려주세요.</p>
             <div class="space-y-4">
                 <input type="text" id="nickname-input" placeholder="예: 핑크빛 솜사탕" class="w-full max-w-sm mx-auto px-6 py-4 text-center text-lg bg-white/50 border-2 border-violet-200 rounded-full focus:ring-4 focus:ring-violet-300 focus:border-violet-400 outline-none transition-all duration-300">
-                <button id="start-button" class="w-full max-w-sm mx-auto px-6 py-4 bg-violet-500 text-white font-bold text-lg rounded-full hover:bg-violet-600 active:scale-95 transform transition-all duration-300 shadow-lg">
+                <button id="start-button" class="w-full max-w-sm mx-auto px-6 py-4 bg-violet-500 text-white font-bold text-lg rounded-full hover:bg-violet-600 active:scale-95 transform transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
                     시작하기! ✨
                 </button>
             </div>
+            <p id="auth-status" class="text-sm text-gray-500 mt-4">서버에 연결 중...</p>
             <img src="https://placehold.co/400x200/DBB2FF/FFFFFF?text=Welcome!&font=sans" alt="Welcome Illustration" class="w-64 mx-auto mt-8 rounded-xl opacity-70">
         </div>
 
@@ -112,7 +113,7 @@
     <div id="alert-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl p-8 shadow-2xl text-center max-w-sm mx-auto">
             <div class="text-5xl mb-4">🔔</div>
-            <p id="alert-message" class="text-gray-600 mb-6 text-lg"></p>
+            <p id="alert-message" class="text-gray-600 mb-6 text-lg whitespace-pre-wrap"></p>
             <button id="close-alert-button" class="px-8 py-3 bg-violet-500 text-white font-bold rounded-full hover:bg-violet-600 transition-colors">확인</button>
         </div>
     </div>
@@ -146,6 +147,7 @@
         const addAnotherButton = document.getElementById('add-another-button');
         const restartButton = document.getElementById('restart-button');
         const resetAllButton = document.getElementById('reset-all-button');
+        const authStatus = document.getElementById('auth-status');
         
         // Modals
         const resetModal = document.getElementById('reset-modal');
@@ -187,19 +189,25 @@
                 return;
             }
 
+            console.log("Attempting to save word:", word, "by nickname:", nickname);
             const currentUserId = auth.currentUser?.uid;
+            console.log("Current User UID:", currentUserId);
+            
             if (!currentUserId) {
-                console.error("User not authenticated.");
-                showAlert("인증 오류가 발생했습니다. 페이지를 새로고침 해주세요.");
+                console.error("User not authenticated at the time of saving.");
+                showAlert("사용자 인증 정보를 찾을 수 없습니다. 앱이 성공적으로 로그인되지 않았습니다. 페이지를 새로고침하여 다시 시도해주세요.");
                 return;
             }
             
             const entriesCollectionPath = getEntriesCollectionPath();
+            console.log("Writing to collection path:", entriesCollectionPath);
 
             try {
+                console.log("Inside try block. Checking for editingDocId:", editingDocId);
                 if (editingDocId) {
                     const docRef = doc(db, entriesCollectionPath, editingDocId);
                     await updateDoc(docRef, { word: word });
+                    console.log("Document updated successfully.");
                     editingDocId = null;
                 } else {
                     await addDoc(collection(db, entriesCollectionPath), {
@@ -208,10 +216,11 @@
                         createdAt: serverTimestamp(),
                         userId: currentUserId 
                     });
+                    console.log("New document added successfully.");
                 }
             } catch (error) {
-                console.error("Error saving document: ", error);
-                showAlert("저장 중 오류가 발생했습니다.");
+                console.error("Firestore save error:", error);
+                showAlert(`저장 중 오류가 발생했습니다. 개발자 콘솔(F12)을 확인해주세요.\n\n오류 코드: ${error.code}`);
             }
         }
         
@@ -300,6 +309,7 @@
         });
 
         submitWordButton.addEventListener('click', async () => {
+            console.log("Submit button clicked.");
             const word = wordInput.value.trim();
             if(word){
                 await saveOrUpdateWord(userNickname, word);
@@ -356,6 +366,7 @@
 
         // --- App Start ---
         document.addEventListener('DOMContentLoaded', async () => {
+            showPage('nickname'); // Show the initial page immediately
             try {
                 // Get config from environment or use hardcoded fallback
                 const firebaseConfig = typeof __firebase_config !== 'undefined' 
@@ -373,9 +384,7 @@
                 appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.appId;
 
                 if (!firebaseConfig || !firebaseConfig.apiKey) {
-                    console.error("Firebase config is missing or invalid.");
-                    showAlert("앱 설정에 오류가 발생했습니다. 페이지를 새로고침 해주세요.");
-                    return;
+                    throw new Error("Firebase config is missing or invalid.");
                 }
 
                 // Initialize Firebase with the correct config
@@ -390,10 +399,28 @@
                     await signInAnonymously(auth);
                 }
                 console.log("Authentication successful.");
-                showPage('nickname'); // Start the app flow
+
+                // Update UI on successful connection
+                authStatus.textContent = '✅ 연결 성공!';
+                authStatus.classList.remove('text-gray-500');
+                authStatus.classList.add('text-green-600');
+                startButton.disabled = false;
+
             } catch (error) {
                 console.error("Authentication failed:", error);
-                showAlert("인증에 실패했습니다. 페이지를 새로고침 해주세요.");
+                
+                // Update UI on failed connection
+                authStatus.textContent = '❌ 연결 실패';
+                authStatus.classList.remove('text-gray-500');
+                authStatus.classList.add('text-red-600');
+
+                let userMessage = "인증에 실패했습니다. 페이지를 새로고침 해주세요.";
+                if (error.code === 'auth/operation-not-allowed') {
+                    userMessage = "Firebase 프로젝트 설정에서 '익명' 로그인 방식이 비활성화되어 있습니다.\n\nFirebase 콘솔 > Authentication > Sign-in method 탭으로 이동하여 '익명' 로그인을 활성화해주세요.";
+                } else {
+                    userMessage = `인증 오류가 발생했습니다: ${error.code}\n\nGitHub Pages에 게시한 경우, Firebase 콘솔 > Authentication > Settings > Authorized domains에 GitHub Pages 도메인 (예: jorbaa15-star.github.io)을 추가해야 합니다.`;
+                }
+                showAlert(userMessage);
             }
         });
     </script>
