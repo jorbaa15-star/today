@@ -49,8 +49,11 @@
                 <button id="start-button" class="w-full max-w-sm mx-auto px-6 py-4 bg-violet-500 text-white font-bold text-lg rounded-full hover:bg-violet-600 active:scale-95 transform transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
                     시작하기! ✨
                 </button>
+                <button id="view-results-from-start" class="w-full max-w-sm mx-auto px-6 py-3 bg-teal-500 text-white font-bold rounded-full hover:bg-teal-600 active:scale-95 transform transition-all duration-300 shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+                    모두의 응답 결과 보기 🧐
+                </button>
             </div>
-            <p id="auth-status" class="text-sm text-gray-500 mt-4">서버에 연결 중...</p>
+             <p id="auth-status" class="text-sm text-gray-500 mt-4">서버에 연결 중...</p>
             <img src="https://placehold.co/400x200/DBB2FF/FFFFFF?text=Welcome!&font=sans" alt="Welcome Illustration" class="w-64 mx-auto mt-8 rounded-xl opacity-70">
         </div>
 
@@ -86,6 +89,9 @@
                  <button id="add-another-button" class="w-full max-w-sm mx-auto px-6 py-3 bg-teal-500 text-white font-bold rounded-full hover:bg-teal-600 active:scale-95 transform transition-all duration-300 shadow-md">
                     낱말 하나 더! 📝
                 </button>
+                <button id="view-results-from-end" class="w-full max-w-sm mx-auto px-6 py-3 bg-sky-500 text-white font-bold rounded-full hover:bg-sky-600 active:scale-95 transform transition-all duration-300 shadow-md">
+                    모두의 응답 결과 보기 🔄
+                </button>
                 <button id="restart-button" class="w-full max-w-sm mx-auto px-6 py-3 bg-gray-400 text-white font-bold rounded-full hover:bg-gray-500 active:scale-95 transform transition-all duration-300 shadow-md">
                     처음부터 다시하기 🔄
                 </button>
@@ -120,7 +126,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, getDocs, deleteDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // --- Firebase Globals ---
@@ -148,6 +154,8 @@
         const restartButton = document.getElementById('restart-button');
         const resetAllButton = document.getElementById('reset-all-button');
         const authStatus = document.getElementById('auth-status');
+        const viewResultsFromStart = document.getElementById('view-results-from-start');
+        const viewResultsFromEnd = document.getElementById('view-results-from-end');
         
         // Modals
         const resetModal = document.getElementById('reset-modal');
@@ -188,11 +196,9 @@
                 showAlert("낱말을 입력해주세요!");
                 return;
             }
-
             console.log("Attempting to save word:", word, "by nickname:", nickname);
             const currentUserId = auth.currentUser?.uid;
-            console.log("Current User UID:", currentUserId);
-            
+             console.log("Current User UID:", currentUserId);
             if (!currentUserId) {
                 console.error("User not authenticated at the time of saving.");
                 showAlert("사용자 인증 정보를 찾을 수 없습니다. 앱이 성공적으로 로그인되지 않았습니다. 페이지를 새로고침하여 다시 시도해주세요.");
@@ -201,13 +207,10 @@
             
             const entriesCollectionPath = getEntriesCollectionPath();
             console.log("Writing to collection path:", entriesCollectionPath);
-
             try {
-                console.log("Inside try block. Checking for editingDocId:", editingDocId);
                 if (editingDocId) {
                     const docRef = doc(db, entriesCollectionPath, editingDocId);
                     await updateDoc(docRef, { word: word });
-                    console.log("Document updated successfully.");
                     editingDocId = null;
                 } else {
                     await addDoc(collection(db, entriesCollectionPath), {
@@ -216,7 +219,6 @@
                         createdAt: serverTimestamp(),
                         userId: currentUserId 
                     });
-                    console.log("New document added successfully.");
                 }
             } catch (error) {
                 console.error("Firestore save error:", error);
@@ -309,7 +311,6 @@
         });
 
         submitWordButton.addEventListener('click', async () => {
-            console.log("Submit button clicked.");
             const word = wordInput.value.trim();
             if(word){
                 await saveOrUpdateWord(userNickname, word);
@@ -364,6 +365,15 @@
             alertModal.classList.add('hidden');
         });
 
+        viewResultsFromStart.addEventListener('click', () => {
+            showPage('results');
+        });
+
+        viewResultsFromEnd.addEventListener('click', () => {
+            resultsList.innerHTML = '<div class="text-center text-gray-500 py-8">결과를 새로고침 하는 중...</div>';
+            showPage('results');
+        });
+
         // --- App Start ---
         document.addEventListener('DOMContentLoaded', async () => {
             showPage('nickname'); // Show the initial page immediately
@@ -387,12 +397,10 @@
                     throw new Error("Firebase config is missing or invalid.");
                 }
 
-                // Initialize Firebase with the correct config
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-
-                // Authenticate user
+                
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -400,16 +408,15 @@
                 }
                 console.log("Authentication successful.");
 
-                // Update UI on successful connection
                 authStatus.textContent = '✅ 연결 성공!';
                 authStatus.classList.remove('text-gray-500');
                 authStatus.classList.add('text-green-600');
                 startButton.disabled = false;
+                viewResultsFromStart.disabled = false;
 
             } catch (error) {
                 console.error("Authentication failed:", error);
                 
-                // Update UI on failed connection
                 authStatus.textContent = '❌ 연결 실패';
                 authStatus.classList.remove('text-gray-500');
                 authStatus.classList.add('text-red-600');
