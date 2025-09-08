@@ -1,43 +1,421 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✨ 몽글몽글 낱말 모으기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'IBM Plex Sans KR', sans-serif;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+        }
+        .card {
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .floating-emoji {
+            animation: float 3s ease-in-out infinite;
+        }
+        .result-item {
+            transform: scale(0.95);
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+        @keyframes fadeIn {
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen w-full flex items-center justify-center p-4">
+    <div id="app-container" class="w-full max-w-2xl mx-auto">
+        <!-- Page 1: Nickname Input -->
+        <div id="nickname-page" class="text-center p-8 md:p-12 rounded-3xl shadow-2xl card transition-all duration-500">
+            <div class="floating-emoji text-7xl mb-6">🧠</div>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">반가워요!</h1>
+            <p class="text-gray-600 mb-8">당신의 멋진 별명을 알려주세요.</p>
+            <div class="space-y-4">
+                <input type="text" id="nickname-input" placeholder="예: 핑크빛 솜사탕" class="w-full max-w-sm mx-auto px-6 py-4 text-center text-lg bg-white/50 border-2 border-violet-200 rounded-full focus:ring-4 focus:ring-violet-300 focus:border-violet-400 outline-none transition-all duration-300">
+                <button id="start-button" class="w-full max-w-sm mx-auto px-6 py-4 bg-violet-500 text-white font-bold text-lg rounded-full hover:bg-violet-600 active:scale-95 transform transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                    시작하기! ✨
+                </button>
+            </div>
+            <p id="auth-status" class="text-sm text-gray-500 mt-4">서버에 연결 중...</p>
+            <img src="https://placehold.co/400x200/DBB2FF/FFFFFF?text=Welcome!&font=sans" alt="Welcome Illustration" class="w-64 mx-auto mt-8 rounded-xl opacity-70">
+        </div>
 
-on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["main"]
+        <!-- Page 2: Word Input -->
+        <div id="word-page" class="hidden text-center p-8 md:p-12 rounded-3xl shadow-2xl card transition-all duration-500">
+            <div class="floating-emoji text-7xl mb-6">💡</div>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+                <span id="user-nickname-display" class="text-violet-500"></span>님, 환영해요!
+            </h1>
+            <p class="text-gray-600 mb-8">지금 머릿속에 떠오르는 낱말 하나를 적어주세요.</p>
+            <div class="space-y-4">
+                <input type="text" id="word-input" placeholder="예: 행복, 바다, 코딩" class="w-full max-w-sm mx-auto px-6 py-4 text-center text-lg bg-white/50 border-2 border-pink-200 rounded-full focus:ring-4 focus:ring-pink-300 focus:border-pink-400 outline-none transition-all duration-300">
+                <button id="submit-word-button" class="w-full max-w-sm mx-auto px-6 py-4 bg-pink-500 text-white font-bold text-lg rounded-full hover:bg-pink-600 active:scale-95 transform transition-all duration-300 shadow-lg">
+                    제출하기 💖
+                </button>
+            </div>
+             <img src="https://placehold.co/400x200/FFC8DD/FFFFFF?text=Think!&font=sans" alt="Thinking Illustration" class="w-64 mx-auto mt-8 rounded-xl opacity-70">
+        </div>
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+        <!-- Page 3: Results -->
+        <div id="results-page" class="hidden p-8 md:p-12 rounded-3xl shadow-2xl card transition-all duration-500">
+            <div class="text-center mb-8">
+                <div class="floating-emoji text-7xl mb-6">🎉</div>
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">모두의 생각 조각들</h1>
+                <p class="text-gray-600">실시간으로 업데이트돼요!</p>
+            </div>
+            
+            <div id="results-list" class="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
+                <div class="text-center text-gray-500 py-8">결과를 불러오는 중...</div>
+            </div>
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+            <div class="mt-8 text-center space-y-3">
+                 <button id="add-another-button" class="w-full max-w-sm mx-auto px-6 py-3 bg-teal-500 text-white font-bold rounded-full hover:bg-teal-600 active:scale-95 transform transition-all duration-300 shadow-md">
+                    낱말 하나 더! 📝
+                </button>
+                <button id="restart-button" class="w-full max-w-sm mx-auto px-6 py-3 bg-gray-400 text-white font-bold rounded-full hover:bg-gray-500 active:scale-95 transform transition-all duration-300 shadow-md">
+                    처음부터 다시하기 🔄
+                </button>
+                <button id="reset-all-button" class="w-full max-w-sm mx-auto px-6 py-3 bg-red-500 text-white font-bold rounded-full hover:bg-red-600 active:scale-95 transform transition-all duration-300 shadow-md">
+                    모두의 낱말 초기화 💥
+                </button>
+            </div>
+        </div>
+    </div>
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+    <!-- Reset Confirmation Modal -->
+    <div id="reset-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-8 shadow-2xl text-center max-w-sm mx-auto">
+            <div class="text-5xl mb-4">🚨</div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">정말 초기화할까요?</h2>
+            <p class="text-gray-600 mb-6">모든 사람이 입력한 낱말이 영구적으로 사라져요. 이 작업은 되돌릴 수 없습니다.</p>
+            <div class="flex justify-center gap-4">
+                <button id="cancel-reset-button" class="px-8 py-3 bg-gray-300 text-gray-800 font-bold rounded-full hover:bg-gray-400 transition-colors">취소</button>
+                <button id="confirm-reset-button" class="px-8 py-3 bg-red-500 text-white font-bold rounded-full hover:bg-red-600 transition-colors">네, 초기화할래요</button>
+            </div>
+        </div>
+    </div>
 
-jobs:
-  # Single deploy job since we're just deploying
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          # Upload entire repository
-          path: '.'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-8 shadow-2xl text-center max-w-sm mx-auto">
+            <div class="text-5xl mb-4">🔔</div>
+            <p id="alert-message" class="text-gray-600 mb-6 text-lg whitespace-pre-wrap"></p>
+            <button id="close-alert-button" class="px-8 py-3 bg-violet-500 text-white font-bold rounded-full hover:bg-violet-600 transition-colors">확인</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // --- Firebase Globals ---
+        let app, db, auth;
+        let appId = 'default-app-id';
+
+        // --- Global State ---
+        let userNickname = '';
+        let editingDocId = null; 
+        let unsubscribeFromResults;
+
+        // --- Page Elements ---
+        const pages = {
+            nickname: document.getElementById('nickname-page'),
+            word: document.getElementById('word-page'),
+            results: document.getElementById('results-page')
+        };
+        const nicknameInput = document.getElementById('nickname-input');
+        const startButton = document.getElementById('start-button');
+        const userNicknameDisplay = document.getElementById('user-nickname-display');
+        const wordInput = document.getElementById('word-input');
+        const submitWordButton = document.getElementById('submit-word-button');
+        const resultsList = document.getElementById('results-list');
+        const addAnotherButton = document.getElementById('add-another-button');
+        const restartButton = document.getElementById('restart-button');
+        const resetAllButton = document.getElementById('reset-all-button');
+        const authStatus = document.getElementById('auth-status');
+        
+        // Modals
+        const resetModal = document.getElementById('reset-modal');
+        const cancelResetButton = document.getElementById('cancel-reset-button');
+        const confirmResetButton = document.getElementById('confirm-reset-button');
+        const alertModal = document.getElementById('alert-modal');
+        const alertMessage = document.getElementById('alert-message');
+        const closeAlertButton = document.getElementById('close-alert-button');
+
+        // --- Custom Alert Function ---
+        function showAlert(message) {
+            alertMessage.textContent = message;
+            alertModal.classList.remove('hidden');
+        }
+
+        // --- Page Navigation ---
+        function showPage(pageName) {
+            Object.values(pages).forEach(page => page.classList.add('hidden'));
+            if (pages[pageName]) {
+                pages[pageName].classList.remove('hidden');
+            }
+            if (pageName === 'results') {
+                listenForResults();
+            } else {
+                if (unsubscribeFromResults) {
+                    unsubscribeFromResults();
+                }
+            }
+        }
+
+        // --- Firestore Logic ---
+        function getEntriesCollectionPath() {
+             return `/artifacts/${appId}/public/data/word-entries`;
+        }
+        
+        async function saveOrUpdateWord(nickname, word) {
+            if (!word.trim()) {
+                showAlert("낱말을 입력해주세요!");
+                return;
+            }
+
+            const currentUserId = auth.currentUser?.uid;
+            if (!currentUserId) {
+                console.error("User not authenticated.");
+                showAlert("사용자 인증 정보를 찾을 수 없습니다. 앱이 성공적으로 로그인되지 않았습니다. 페이지를 새로고침하여 다시 시도해주세요.");
+                return;
+            }
+            
+            const entriesCollectionPath = getEntriesCollectionPath();
+
+            try {
+                if (editingDocId) {
+                    const docRef = doc(db, entriesCollectionPath, editingDocId);
+                    await updateDoc(docRef, { word: word });
+                    editingDocId = null;
+                } else {
+                    await addDoc(collection(db, entriesCollectionPath), {
+                        nickname: nickname,
+                        word: word,
+                        createdAt: serverTimestamp(),
+                        userId: currentUserId 
+                    });
+                }
+            } catch (error) {
+                console.error("Error saving document: ", error);
+                showAlert(`저장 중 오류가 발생했습니다: ${error.message}`);
+            }
+        }
+        
+        async function deleteAllEntries() {
+            const entriesCollectionPath = getEntriesCollectionPath();
+            try {
+                const querySnapshot = await getDocs(collection(db, entriesCollectionPath));
+                const deletePromises = [];
+                querySnapshot.forEach((doc) => {
+                    deletePromises.push(deleteDoc(doc.ref));
+                });
+                await Promise.all(deletePromises);
+                console.log("All entries deleted.");
+            } catch (error) {
+                console.error("Error deleting all entries: ", error);
+                showAlert("초기화 중 오류가 발생했습니다.");
+            }
+        }
+
+        function listenForResults() {
+            const entriesCollectionPath = getEntriesCollectionPath();
+            const q = query(collection(db, entriesCollectionPath));
+            
+            if (unsubscribeFromResults) {
+                unsubscribeFromResults();
+            }
+
+            unsubscribeFromResults = onSnapshot(q, (snapshot) => {
+                resultsList.innerHTML = '';
+                if (snapshot.empty) {
+                    resultsList.innerHTML = '<div class="text-center text-gray-500 py-8">아직 아무도 낱말을 입력하지 않았어요. 텅... 💨</div>';
+                    return;
+                }
+
+                const docs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+                const currentUserId = auth.currentUser?.uid;
+
+                docs.forEach((docData, index) => {
+                    const nickname = docData.nickname || '익명';
+                    const word = docData.word || '비밀';
+                    const isCurrentUser = docData.userId === currentUserId;
+
+                    const item = document.createElement('div');
+                    item.className = 'result-item flex items-center justify-between p-4 bg-white/60 rounded-xl shadow-sm border border-gray-200 gap-2';
+                    item.style.animationDelay = `${index * 50}ms`;
+                    
+                    let editButtonHTML = '';
+                    if (isCurrentUser) {
+                        editButtonHTML = `
+                            <button class="edit-btn text-sm text-blue-500 hover:text-blue-700 font-semibold" data-doc-id="${docData.id}" data-current-word="${word}">
+                                수정
+                            </button>
+                        `;
+                    }
+
+                    item.innerHTML = `
+                        <div class="flex items-center flex-grow">
+                            <span class="text-2xl mr-3">${['💖', '✨', '🦄', '🌈', '🍀'][index % 5]}</span>
+                            <p class="text-lg font-semibold text-gray-700">${nickname}</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <p class="text-lg text-violet-600 font-bold bg-violet-100 px-3 py-1 rounded-full">${word}</p>
+                            ${editButtonHTML}
+                        </div>
+                    `;
+                    resultsList.appendChild(item);
+                });
+            }, (error) => {
+                console.error("Error getting results:", error);
+                resultsList.innerHTML = '<div class="text-center text-red-500 py-8">결과를 불러오는 데 실패했어요. 😭</div>';
+            });
+        }
+
+        // --- Event Listeners ---
+        startButton.addEventListener('click', () => {
+            const nickname = nicknameInput.value.trim();
+            if (nickname) {
+                userNickname = nickname;
+                userNicknameDisplay.textContent = userNickname;
+                showPage('word');
+            } else {
+                showAlert('별명을 입력해주세요!');
+            }
+        });
+
+        submitWordButton.addEventListener('click', async () => {
+            const word = wordInput.value.trim();
+            if(word){
+                await saveOrUpdateWord(userNickname, word);
+                wordInput.value = '';
+                submitWordButton.innerHTML = '제출하기 💖';
+                showPage('results');
+            } else {
+                 showAlert('낱말을 입력해주세요!');
+            }
+        });
+
+        addAnotherButton.addEventListener('click', () => {
+            editingDocId = null;
+            wordInput.value = '';
+            submitWordButton.innerHTML = '제출하기 💖';
+            showPage('word');
+        });
+
+        restartButton.addEventListener('click', () => {
+            userNickname = '';
+            nicknameInput.value = '';
+            wordInput.value = '';
+            showPage('nickname');
+        });
+
+        resultsList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('edit-btn')) {
+                const docId = e.target.dataset.docId;
+                const currentWord = e.target.dataset.currentWord;
+                
+                editingDocId = docId;
+                wordInput.value = currentWord;
+                submitWordButton.innerHTML = '수정하기 ✏️';
+                showPage('word');
+            }
+        });
+
+        resetAllButton.addEventListener('click', () => {
+            resetModal.classList.remove('hidden');
+        });
+
+        cancelResetButton.addEventListener('click', () => {
+            resetModal.classList.add('hidden');
+        });
+
+        confirmResetButton.addEventListener('click', async () => {
+            await deleteAllEntries();
+            resetModal.classList.add('hidden');
+        });
+
+        closeAlertButton.addEventListener('click', () => {
+            alertModal.classList.add('hidden');
+        });
+
+        // --- App Start ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            showPage('nickname'); // Show the initial page immediately
+            try {
+                // Get config from environment or use hardcoded fallback
+                const firebaseConfig = typeof __firebase_config !== 'undefined' 
+                    ? JSON.parse(__firebase_config) 
+                    : {
+                        apiKey: "AIzaSyBoVUoIcJNNTS7UpmazEa2HdD_o6hms7Og",
+                        authDomain: "today-3bda0.firebaseapp.com",
+                        projectId: "today-3bda0",
+                        storageBucket: "today-3bda0.firebasestorage.app",
+                        messagingSenderId: "418469230053",
+                        appId: "1:418469230053:web:eabe749e7db12c3e41eb0c",
+                        measurementId: "G-L6J3T6TF2X"
+                    };
+
+                appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.appId;
+
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    throw new Error("Firebase config is missing or invalid.");
+                }
+
+                // Initialize Firebase with the correct config
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Authenticate user
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                console.log("Authentication successful.");
+
+                // Update UI on successful connection
+                authStatus.textContent = '✅ 연결 성공!';
+                authStatus.classList.remove('text-gray-500');
+                authStatus.classList.add('text-green-600');
+                startButton.disabled = false;
+
+            } catch (error) {
+                console.error("Authentication failed:", error);
+                
+                // Update UI on failed connection
+                authStatus.textContent = '❌ 연결 실패';
+                authStatus.classList.remove('text-gray-500');
+                authStatus.classList.add('text-red-600');
+
+                let userMessage = "인증에 실패했습니다. 페이지를 새로고침 해주세요.";
+                if (error.code === 'auth/operation-not-allowed') {
+                    userMessage = "Firebase 프로젝트 설정에서 '익명' 로그인 방식이 비활성화되어 있습니다.\n\nFirebase 콘솔 > Authentication > Sign-in method 탭으로 이동하여 '익명' 로그인을 활성화해주세요.";
+                } else {
+                    userMessage = `인증 오류가 발생했습니다: ${error.code}\n\nGitHub Pages에 게시한 경우, Firebase 콘솔 > Authentication > Settings > Authorized domains에 GitHub Pages 도메인 (예: jorbaa15-star.github.io)을 추가해야 합니다.`;
+                }
+                showAlert(userMessage);
+            }
+        });
+    </script>
+</body>
+</html>
+
