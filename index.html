@@ -39,7 +39,6 @@
 </head>
 <body class="min-h-screen w-full flex items-center justify-center p-4">
     <div id="app-container" class="w-full max-w-2xl mx-auto">
-        <!-- HTML 부분은 변경사항 없습니다. -->
         <!-- Page 1: Nickname Input -->
         <div id="nickname-page" class="text-center p-8 md:p-12 rounded-3xl shadow-2xl card transition-all duration-500">
             <div class="floating-emoji text-7xl mb-6">🧠</div>
@@ -109,32 +108,23 @@
         </div>
     </div>
 
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-8 shadow-2xl text-center max-w-sm mx-auto">
+            <div class="text-5xl mb-4">🔔</div>
+            <p id="alert-message" class="text-gray-600 mb-6 text-lg"></p>
+            <button id="close-alert-button" class="px-8 py-3 bg-violet-500 text-white font-bold rounded-full hover:bg-violet-600 transition-colors">확인</button>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // --- Firebase Configuration ---
-        // 1. 여기에 본인의 Firebase 설정 정보를 정확하게 붙여넣었습니다.
-        // 2. 불필요한 try-catch 구문과 변수 선언을 제거하여 코드를 정리했습니다.
-        const firebaseConfig = {
-            apiKey: "AIzaSyBoVUoIcJNNTS7UpmazEa2HdD_o6hms7Og",
-            authDomain: "today-3bda0.firebaseapp.com",
-            projectId: "today-3bda0",
-            storageBucket: "today-3bda0.firebasestorage.app",
-            messagingSenderId: "418469230053",
-            appId: "1:418469230053:web:eabe749e7db12c3e41eb0c",
-            measurementId: "G-L6J3T6TF2X"
-        };
-        const appId = firebaseConfig.appId;
-
-
-        // --- App Initialization ---
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        // --- 이하 코드는 이전과 동일합니다 ---
+        // --- Firebase Globals ---
+        let app, db, auth;
+        let appId = 'default-app-id';
 
         // --- Global State ---
         let userNickname = '';
@@ -156,9 +146,20 @@
         const addAnotherButton = document.getElementById('add-another-button');
         const restartButton = document.getElementById('restart-button');
         const resetAllButton = document.getElementById('reset-all-button');
+        
+        // Modals
         const resetModal = document.getElementById('reset-modal');
         const cancelResetButton = document.getElementById('cancel-reset-button');
         const confirmResetButton = document.getElementById('confirm-reset-button');
+        const alertModal = document.getElementById('alert-modal');
+        const alertMessage = document.getElementById('alert-message');
+        const closeAlertButton = document.getElementById('close-alert-button');
+
+        // --- Custom Alert Function ---
+        function showAlert(message) {
+            alertMessage.textContent = message;
+            alertModal.classList.remove('hidden');
+        }
 
         // --- Page Navigation ---
         function showPage(pageName) {
@@ -176,20 +177,24 @@
         }
 
         // --- Firestore Logic ---
-        const entriesCollectionPath = `/artifacts/${appId}/public/data/word-entries`;
+        function getEntriesCollectionPath() {
+             return `/artifacts/${appId}/public/data/word-entries`;
+        }
         
         async function saveOrUpdateWord(nickname, word) {
             if (!word.trim()) {
-                alert("낱말을 입력해주세요!");
+                showAlert("낱말을 입력해주세요!");
                 return;
             }
 
             const currentUserId = auth.currentUser?.uid;
             if (!currentUserId) {
                 console.error("User not authenticated.");
-                alert("인증 오류가 발생했습니다. 페이지를 새로고침 해주세요.");
+                showAlert("인증 오류가 발생했습니다. 페이지를 새로고침 해주세요.");
                 return;
             }
+            
+            const entriesCollectionPath = getEntriesCollectionPath();
 
             try {
                 if (editingDocId) {
@@ -206,10 +211,12 @@
                 }
             } catch (error) {
                 console.error("Error saving document: ", error);
+                showAlert("저장 중 오류가 발생했습니다.");
             }
         }
         
         async function deleteAllEntries() {
+            const entriesCollectionPath = getEntriesCollectionPath();
             try {
                 const querySnapshot = await getDocs(collection(db, entriesCollectionPath));
                 const deletePromises = [];
@@ -220,10 +227,12 @@
                 console.log("All entries deleted.");
             } catch (error) {
                 console.error("Error deleting all entries: ", error);
+                showAlert("초기화 중 오류가 발생했습니다.");
             }
         }
 
         function listenForResults() {
+            const entriesCollectionPath = getEntriesCollectionPath();
             const q = query(collection(db, entriesCollectionPath));
             
             if (unsubscribeFromResults) {
@@ -286,7 +295,7 @@
                 userNicknameDisplay.textContent = userNickname;
                 showPage('word');
             } else {
-                alert('별명을 입력해주세요!');
+                showAlert('별명을 입력해주세요!');
             }
         });
 
@@ -298,7 +307,7 @@
                 submitWordButton.innerHTML = '제출하기 💖';
                 showPage('results');
             } else {
-                 alert('낱말을 입력해주세요!');
+                 showAlert('낱말을 입력해주세요!');
             }
         });
 
@@ -341,20 +350,51 @@
             resetModal.classList.add('hidden');
         });
 
+        closeAlertButton.addEventListener('click', () => {
+            alertModal.classList.add('hidden');
+        });
 
         // --- App Start ---
         document.addEventListener('DOMContentLoaded', async () => {
             try {
+                // Get config from environment or use hardcoded fallback
+                const firebaseConfig = typeof __firebase_config !== 'undefined' 
+                    ? JSON.parse(__firebase_config) 
+                    : {
+                        apiKey: "AIzaSyBoVUoIcJNNTS7UpmazEa2HdD_o6hms7Og",
+                        authDomain: "today-3bda0.firebaseapp.com",
+                        projectId: "today-3bda0",
+                        storageBucket: "today-3bda0.firebasestorage.app",
+                        messagingSenderId: "418469230053",
+                        appId: "1:418469230053:web:eabe749e7db12c3e41eb0c",
+                        measurementId: "G-L6J3T6TF2X"
+                    };
+
+                appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.appId;
+
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    console.error("Firebase config is missing or invalid.");
+                    showAlert("앱 설정에 오류가 발생했습니다. 페이지를 새로고침 해주세요.");
+                    return;
+                }
+
+                // Initialize Firebase with the correct config
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Authenticate user
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
                 console.log("Authentication successful.");
+                showPage('nickname'); // Start the app flow
             } catch (error) {
                 console.error("Authentication failed:", error);
+                showAlert("인증에 실패했습니다. 페이지를 새로고침 해주세요.");
             }
-            showPage('nickname');
         });
     </script>
 </body>
